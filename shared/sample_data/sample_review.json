@@ -1,0 +1,117 @@
+{
+  "review_id": "rev_6dbfcbac5f79",
+  "execution_id": "exec_b735359e8634",
+  "reviewer": {
+    "name": "rule-based-reviewer",
+    "version": "0.1.0",
+    "mode": "rule_based"
+  },
+  "created_at": "2026-11-23T10:34:23.779737+00:00",
+  "checks": [
+    {
+      "check_id": "final_answer_present",
+      "description": "The run ended with a final answer.",
+      "severity": "critical",
+      "status": "pass",
+      "evidence_step_ids": [],
+      "detail": "Final answer present."
+    },
+    {
+      "check_id": "no_step_errors",
+      "description": "No step reported an error.",
+      "severity": "critical",
+      "status": "pass",
+      "evidence_step_ids": [],
+      "detail": "All steps completed without errors."
+    },
+    {
+      "check_id": "trace_step_ids_consecutive",
+      "description": "Trace step ids are 1-based and consecutive.",
+      "severity": "warning",
+      "status": "pass",
+      "evidence_step_ids": [],
+      "detail": "3 step(s) in order."
+    },
+    {
+      "check_id": "tool_results_independently_verified",
+      "description": "Tool outputs match an independent re-computation.",
+      "severity": "critical",
+      "status": "pass",
+      "evidence_step_ids": [
+        2
+      ],
+      "detail": "1 tool output(s) re-computed and matched."
+    },
+    {
+      "check_id": "final_answer_matches_tool_results",
+      "description": "The final answer states the value the tool returned.",
+      "severity": "critical",
+      "status": "pass",
+      "evidence_step_ids": [
+        2
+      ],
+      "detail": "Final answer states the tool result(s)."
+    },
+    {
+      "check_id": "latency_within_budget",
+      "description": "Total run time is within 5000 ms.",
+      "severity": "warning",
+      "status": "pass",
+      "evidence_step_ids": [],
+      "detail": "Run took 0.377 ms (budget 5000 ms)."
+    }
+  ],
+  "score": 1.0,
+  "verdict": "pass",
+  "audit": {
+    "passed": true,
+    "findings": [
+      {
+        "audit_id": "evidence_steps_exist",
+        "status": "pass",
+        "description": "Every cited step exists in the trace.",
+        "detail": "All cited steps exist."
+      },
+      {
+        "audit_id": "score_reproducible",
+        "status": "pass",
+        "description": "The score can be recomputed from the checks.",
+        "detail": "Reported 1.0, recomputed 1.0."
+      },
+      {
+        "audit_id": "verdict_consistent",
+        "status": "pass",
+        "description": "The verdict follows from the checks.",
+        "detail": "Reported 'pass', derived 'pass'."
+      },
+      {
+        "audit_id": "failures_explained",
+        "status": "pass",
+        "description": "Every failed check has an explanation.",
+        "detail": "All failures explained."
+      },
+      {
+        "audit_id": "ids_consistent",
+        "status": "pass",
+        "description": "Review, trace and evidence refer to the same execution.",
+        "detail": "Ids seen: ['exec_b735359e8634']."
+      },
+      {
+        "audit_id": "required_checks_present",
+        "status": "pass",
+        "description": "No required check was dropped.",
+        "detail": "All required checks present."
+      }
+    ]
+  },
+  "trust": {
+    "score": 0.9444,
+    "lower": 0.8414,
+    "upper": 1.0,
+    "method": "beta_prior_uncalibrated",
+    "n_checks": 6,
+    "audit_penalty_applied": false,
+    "critical_failure_cap_applied": false
+  },
+  "improvements": []
+}

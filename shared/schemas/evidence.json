@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-monitoring-system.local/schemas/evidence.json",
+  "title": "EvidenceSummary",
+  "description": "Facts aggregated from one ExecutionTrace. Produced by backend/app/monitoring/evidence.py (Person 1) and read by the reviewer (Person 2). Contains observations only, never judgements.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["execution_id", "total_steps", "step_type_counts", "tool_call_count", "tools_used", "error_count", "errors", "total_duration_ms", "has_final_answer", "final_answer", "verifiable_claims"],
+  "properties": {
+    "execution_id": { "type": "string", "minLength": 1 },
+    "total_steps": { "type": "integer", "minimum": 0 },
+    "step_type_counts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "tool_call_count": { "type": "integer", "minimum": 0 },
+    "tools_used": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "error_count": { "type": "integer", "minimum": 0 },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "message"],
+        "properties": {
+          "step_id": { "type": "integer", "minimum": 1 },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "total_duration_ms": { "type": "number", "minimum": 0 },
+    "has_final_answer": { "type": "boolean" },
+    "final_answer": { "type": ["string", "null"] },
+    "verifiable_claims": {
+      "type": "array",
+      "description": "Tool outputs a reviewer can re-check independently of the agent.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "kind", "input", "claimed_result"],
+        "properties": {
+          "step_id": { "type": "integer", "minimum": 1 },
+          "kind": { "type": "string", "enum": ["arithmetic", "word_count"] },
+          "input": { "type": "string", "description": "Expression (arithmetic) or text (word_count)." },
+          "claimed_result": { "type": "number" }
+        }
+      }
+    }
+  }
+}

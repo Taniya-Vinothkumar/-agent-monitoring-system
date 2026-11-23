@@ -1,0 +1,69 @@
+{
+  "execution_id": "exec_b735359e8634",
+  "task": "What is (12 + 8) * 3 / 4?",
+  "status": "completed",
+  "agent": {
+    "name": "mock-rule-based-agent",
+    "version": "0.1.0",
+    "mode": "mock_rule_based"
+  },
+  "fault_injection": null,
+  "started_at": "2026-11-23T10:34:23.779020Z",
+  "finished_at": "2026-11-23T10:34:23.779405Z",
+  "total_duration_ms": 0.377,
+  "steps": [
+    {
+      "step_id": 1,
+      "type": "plan",
+      "name": "rule_based_planner",
+      "status": "ok",
+      "input": {
+        "task": "What is (12 + 8) * 3 / 4?"
+      },
+      "output": {
+        "kind": "arithmetic",
+        "tool": "calculator",
+        "tool_input": {
+          "expression": "(12 + 8) * 3 / 4"
+        },
+        "rationale": "Found an arithmetic expression in the task text."
+      },
+      "error": null,
+      "timestamp": "2026-11-23T10:34:23.779043Z",
+      "duration_ms": 0.177
+    },
+    {
+      "step_id": 2,
+      "type": "tool_call",
+      "name": "calculator",
+      "status": "ok",
+      "input": {
+        "expression": "(12 + 8) * 3 / 4"
+      },
+      "output": {
+        "result": 15
+      },
+      "error": null,
+      "timestamp": "2026-11-23T10:34:23.779268Z",
+      "duration_ms": 0.092
+    },
+    {
+      "step_id": 3,
+      "type": "final_answer",
+      "name": "compose_answer",
+      "status": "ok",
+      "input": {
+        "tool_result": {
+          "result": 15
+        }
+      },
+      "output": {
+        "text": "The result of (12 + 8) * 3 / 4 is 15."
+      },
+      "error": null,
+      "timestamp": "2026-11-23T10:34:23.779386Z",
+      "duration_ms": 0.002
+    }
+  ],
+  "final_answer": "The result of (12 + 8) * 3 / 4 is 15."
+}

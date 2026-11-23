@@ -1,0 +1,26 @@
+{
+  "execution_id": "exec_b735359e8634",
+  "total_steps": 3,
+  "step_type_counts": {
+    "plan": 1,
+    "tool_call": 1,
+    "final_answer": 1
+  },
+  "tool_call_count": 1,
+  "tools_used": [
+    "calculator"
+  ],
+  "error_count": 0,
+  "errors": [],
+  "total_duration_ms": 0.377,
+  "has_final_answer": true,
+  "final_answer": "The result of (12 + 8) * 3 / 4 is 15.",
+  "verifiable_claims": [
+    {
+      "step_id": 2,
+      "kind": "arithmetic",
+      "input": "(12 + 8) * 3 / 4",
+      "claimed_result": 15.0
+    }
+  ]
+}

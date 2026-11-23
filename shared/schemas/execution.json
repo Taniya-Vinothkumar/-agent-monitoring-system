@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-monitoring-system.local/schemas/execution.json",
+  "title": "ExecutionTrace",
+  "description": "Record of one agent run: the task, every step the agent took, and the outcome. Produced by backend/app/monitoring/trace_recorder.py (Person 1). Consumed by evidence aggregation, the reviewer, and the frontend.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["execution_id", "task", "status", "agent", "started_at", "finished_at", "total_duration_ms", "steps", "final_answer"],
+  "properties": {
+    "execution_id": { "type": "string", "minLength": 1, "description": "Unique id, e.g. exec_3f9a1c2b7d10." },
+    "task": { "type": "string", "minLength": 1, "maxLength": 500, "description": "Task text exactly as submitted." },
+    "status": { "type": "string", "enum": ["completed", "failed"], "description": "failed = a step errored and no final answer was produced." },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "mode"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "mode": { "type": "string", "enum": ["mock_rule_based"], "description": "mock_rule_based = deterministic stand-in agent, no LLM." }
+      }
+    },
+    "fault_injection": {
+      "type": ["string", "null"],
+      "enum": ["wrong_tool_result", "inconsistent_answer", null],
+      "description": "TEST-ONLY. Set when the run was deliberately corrupted to exercise the reviewer."
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": "string", "format": "date-time" },
+    "total_duration_ms": { "type": "number", "minimum": 0 },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/step" }
+    },
+    "final_answer": { "type": ["string", "null"] }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step_id", "type", "name", "status", "input", "output", "error", "timestamp", "duration_ms"],
+      "properties": {
+        "step_id": { "type": "integer", "minimum": 1, "description": "1-based, consecutive, in execution order." },
+        "type": { "type": "string", "enum": ["plan", "tool_call", "final_answer"] },
+        "name": { "type": "string", "description": "Planner, tool or composer name, e.g. calculator." },
+        "status": { "type": "string", "enum": ["ok", "error"] },
+        "input": { "type": "object" },
+        "output": { "type": ["object", "null"] },
+        "error": { "type": ["string", "null"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "duration_ms": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

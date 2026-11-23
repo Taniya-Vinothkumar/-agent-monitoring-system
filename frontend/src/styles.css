@@ -1,0 +1,103 @@
+:root {
+  --bg: #e6ebef;
+  --surface: #f9fafb;
+  --ink: #101c26;
+  --muted: #566676;
+  --line: #c3cdd6;
+  --navy: #1f3a5f;
+  --pass: #1b6e47;
+  --warn: #8f5a00;
+  --fail: #a8231b;
+  --pass-bg: #d9eee3;
+  --warn-bg: #f6e6c4;
+  --fail-bg: #f6d9d6;
+  font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.5;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.app { max-width: 1180px; margin: 0 auto; padding: 0 20px 48px; }
+h1, h2, h3 { line-height: 1.2; margin: 0 0 8px; }
+h1 { font-size: 1.25rem; }
+h2 { font-size: 1.1rem; }
+h3 { font-size: 0.95rem; margin-top: 20px; }
+code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.8rem; word-break: break-word; }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.warn-text { color: var(--fail); }
+
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0 8px; flex-wrap: wrap; }
+.tab { font: inherit; background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 12px; cursor: pointer; color: var(--muted); }
+.tab.active { color: var(--ink); border-bottom-color: var(--navy); font-weight: 600; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #4d7fc4; outline-offset: 2px; }
+
+.source { margin: 0 0 16px; padding: 8px 12px; border-left: 3px solid var(--line); background: var(--surface); font-size: 0.9rem; }
+.source-backend { border-color: var(--pass); }
+.source-sample-empty, .source-sample-offline { border-color: var(--warn); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px; margin-bottom: 16px; }
+
+.task-form { display: grid; grid-template-columns: 1fr 260px auto; gap: 12px; align-items: end; }
+.task-form label { display: grid; gap: 4px; font-size: 0.85rem; color: var(--muted); }
+input, select { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--ink); }
+button[type="submit"] { font: inherit; padding: 9px 18px; border: 0; border-radius: 4px; background: var(--navy); color: #fff; cursor: pointer; }
+button[type="submit"]:disabled { opacity: 0.55; cursor: default; }
+
+.stats { display: flex; gap: 28px; flex-wrap: wrap; margin: 0 0 14px; }
+.stats dt { font-size: 0.85rem; color: var(--muted); }
+.stats dd { margin: 0; font-size: 1.4rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.panel .table-wrap { background: transparent; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.trace-table td:nth-child(5), .trace-table td:nth-child(6) { min-width: 220px; }
+.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row-error td { background: var(--fail-bg); }
+.link { font: inherit; background: none; border: 0; padding: 0; color: var(--navy); text-decoration: underline; cursor: pointer; text-align: left; }
+.tag { margin-left: 8px; padding: 1px 6px; font-size: 0.75rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
+
+.badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.badge-pass { background: var(--pass-bg); color: var(--pass); }
+.badge-needs_attention { background: var(--warn-bg); color: var(--warn); }
+.badge-fail { background: var(--fail-bg); color: var(--fail); }
+.badge-none { background: #e0e5ea; color: var(--muted); }
+
+/* Trust meter: the one distinctive element. A point plus its 95% range. */
+.trust-readout { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.trust-value { font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.tone-high { color: var(--pass); } .tone-mid { color: var(--warn); } .tone-low { color: var(--fail); }
+.meter { position: relative; height: 22px; margin-top: 12px; border-radius: 3px; background: repeating-linear-gradient(90deg, #dbe2e8 0 1px, transparent 1px 10%), #edf1f4; border: 1px solid var(--line); }
+.meter-band { position: absolute; top: 5px; bottom: 5px; background: rgba(31, 58, 95, 0.3); border-radius: 2px; }
+.meter-point { position: absolute; top: -4px; bottom: -4px; width: 4px; margin-left: -2px; border-radius: 2px; }
+.tone-bg-high { background: var(--pass); } .tone-bg-mid { background: var(--warn); } .tone-bg-low { background: var(--fail); }
+.meter-scale { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+.verdict-line { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; }
+.checks, .audit, .improvements { list-style: none; margin: 0; padding: 0; }
+.check { display: grid; grid-template-columns: 70px 1fr auto; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.check-status { font-weight: 600; font-size: 0.85rem; }
+.check-pass .check-status { color: var(--pass); }
+.check-fail .check-status { color: var(--fail); }
+.check-skipped .check-status { color: var(--muted); }
+.audit li, .improvements li { padding: 6px 0; font-size: 0.9rem; }
+.task-line { font-size: 1.05rem; margin: 0 0 4px; }
+.final { margin: 14px 0 0; }
+
+.monitoring { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; align-items: start; }
+.detail { min-width: 0; }
+.run-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.run { width: 100%; font: inherit; text-align: left; display: grid; gap: 6px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; cursor: pointer; color: inherit; }
+.run.active { border-color: var(--navy); box-shadow: inset 3px 0 0 var(--navy); }
+.run-task { overflow-wrap: anywhere; }
+
+@media (max-width: 800px) {
+  .task-form { grid-template-columns: 1fr; }
+  .monitoring { grid-template-columns: minmax(0, 1fr); }
+  .check { grid-template-columns: 60px 1fr; }
+  .check > :last-child { grid-column: 2; }
+}

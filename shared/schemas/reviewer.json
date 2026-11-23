@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-monitoring-system.local/schemas/reviewer.json",
+  "title": "ReviewerResult",
+  "description": "Complete reviewer output for one execution. Produced by reviewer.review_execution() (Person 2) and stored/served by the backend (Person 1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "review_id",
+    "execution_id",
+    "reviewer",
+    "created_at",
+    "checks",
+    "score",
+    "verdict",
+    "audit",
+    "trust",
+    "improvements"
+  ],
+  "properties": {
+    "review_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "mode"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "rule_based"
+          ]
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Severity-weighted share of non-skipped checks that passed."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "needs_attention",
+        "fail"
+      ]
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passed",
+        "findings"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "audit_id",
+              "status",
+              "description",
+              "detail"
+            ],
+            "properties": {
+              "audit_id": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pass",
+                  "fail"
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "trust": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "lower",
+        "upper",
+        "method",
+        "n_checks",
+        "audit_penalty_applied",
+        "critical_failure_cap_applied"
+      ],
+      "properties": {
+        "score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "lower": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "upper": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "beta_prior_uncalibrated"
+          ],
+          "description": "Not yet empirically calibrated against ground truth."
+        },
+        "n_checks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "audit_penalty_applied": {
+          "type": "boolean",
+          "description": "The review failed its own audit, so trust is capped at 0.5."
+        },
+        "critical_failure_cap_applied": {
+          "type": "boolean",
+          "description": "A critical check failed, so trust is capped at 0.5."
+        }
+      }
+    },
+    "improvements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "improvement_id",
+          "target_check",
+          "suggestion",
+          "requires_human_approval",
+          "status"
+        ],
+        "properties": {
+          "improvement_id": {
+            "type": "string"
+          },
+          "target_check": {
+            "type": "string"
+          },
+          "suggestion": {
+            "type": "string"
+          },
+          "requires_human_approval": {
+            "type": "boolean",
+            "const": true
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed"
+            ],
+            "description": "Nothing is ever applied automatically."
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "description",
+        "severity",
+        "status",
+        "evidence_step_ids",
+        "detail"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "info",
+            "warning",
+            "critical"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "skipped"
+          ]
+        },
+        "evidence_step_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "detail": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
