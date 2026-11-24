@@ -29,7 +29,7 @@ class TaskRequest(_Strict):
 class AgentInfo(_Strict):
     name: str
     version: str
-    mode: Literal["mock_rule_based"]
+    mode: Literal["mock_rule_based", "ollama"]
 
 
 class TraceStep(_Strict):
