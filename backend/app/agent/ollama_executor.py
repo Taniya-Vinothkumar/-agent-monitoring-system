@@ -1,12 +1,10 @@
-
-"""Ollama-powered agent executor.
+﻿"""Ollama-powered agent executor.
 
 Ollama selects a registered tool.
 Trusted Python functions execute all tools.
 """
 
 import json
-import re
 from typing import Any
 
 import httpx
@@ -29,7 +27,7 @@ class OllamaAgentExecutor:
             version=self.VERSION,
             mode="ollama",
         )
-        
+
     def _request_plan(self, task: str) -> dict[str, Any]:
         """Ask Ollama to select a registered tool."""
 
@@ -77,7 +75,11 @@ Example text response:
             ],
             "stream": False,
             "format": "json",
-            "options": {"temperature": 0},
+            "keep_alive": "10m",
+            "options": {
+                "temperature": 0,
+                "num_predict": 96,
+            },
         }
 
         url = self.settings.ollama_base_url.rstrip("/") + "/api/chat"
@@ -101,7 +103,6 @@ Example text response:
         if not isinstance(plan, dict):
             raise ValueError("Agent plan must be a JSON object.")
 
-        # Normalize the model's response to the required fields.
         if "tool" not in plan or "tool_input" not in plan:
             raise ValueError("Ollama omitted required planning fields.")
 
