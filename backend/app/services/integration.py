@@ -1,7 +1,10 @@
 
-"""Module coordination (Person 1).
+"""Module coordination.
 
-TaskRequest -> agent -> trace -> evidence -> reviewer -> database
+TaskRequest -> agent -> trace -> evidence -> reviewers -> database
+
+The deterministic reviewer remains authoritative.
+AI specialist reviews are advisory.
 """
 
 import json
@@ -24,6 +27,7 @@ from backend.app.config import Settings
 from backend.app.database.models import ExecutionRecord, ReviewRecord
 from backend.app.monitoring.evidence import aggregate_evidence
 from reviewer import review_execution
+from reviewer.specialists import run_specialist_reviewers
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -46,31 +50,47 @@ def process_task(
 ) -> tuple[ExecutionTrace, EvidenceSummary, ReviewerResult]:
     """Execute a task using the configured agent and review its output."""
 
-    # Step 1: Select execution engine from configuration.
+    # Step 1: Select execution engine.
     if settings.agent_mode == "ollama":
         trace = OllamaAgentExecutor(settings).run(request)
     else:
         trace = MockAgentExecutor().run(request)
 
-    # Step 2: Aggregate independently verifiable evidence.
+    # Step 2: Aggregate evidence.
     evidence = aggregate_evidence(trace)
 
-    # Step 3: Convert Pydantic models into reviewer dictionaries.
+    # Step 3: Convert models into dictionaries.
     trace_dict = trace.model_dump(mode="json")
     evidence_dict = evidence.model_dump(mode="json")
 
-    # Step 4: Run independent reviewer.
+    # Step 4: Run authoritative deterministic reviewer.
     review_dict = review_execution(
         trace_dict,
         evidence_dict,
         latency_budget_ms=settings.latency_budget_ms,
     )
 
-    # Step 5: Validate reviewer output.
+    # Step 5: Run optional AI specialist reviewers.
+    if settings.specialist_reviews_enabled:
+        specialist_reviews = run_specialist_reviewers(
+            trace_dict,
+            evidence_dict,
+            base_url=settings.ollama_base_url,
+            model=settings.ollama_model,
+            timeout_seconds=settings.ollama_specialist_timeout_seconds,
+        )
+    else:
+        specialist_reviews = []
+
+    # Specialist results are advisory.
+    # They cannot modify the deterministic verdict or trust score.
+    review_dict["specialist_reviews"] = specialist_reviews
+
+    # Step 6: Validate complete reviewer output.
     review = ReviewerResult.model_validate(review_dict)
     review_dict = review.model_dump(mode="json")
 
-    # Step 6: Persist execution.
+    # Step 7: Persist execution.
     session.add(
         ExecutionRecord(
             execution_id=trace.execution_id,
@@ -83,7 +103,7 @@ def process_task(
         )
     )
 
-    # Step 7: Persist reviewer result.
+    # Step 8: Persist complete reviewer result.
     session.add(
         ReviewRecord(
             review_id=review.review_id,
@@ -97,7 +117,7 @@ def process_task(
 
     session.commit()
 
-    # Step 8: Optionally save JSON artifacts.
+    # Step 9: Optionally save JSON artifacts.
     if settings.persist_json_files:
         _write_json(
             settings.data_dir / "executions",

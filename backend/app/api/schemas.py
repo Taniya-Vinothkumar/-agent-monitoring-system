@@ -1,13 +1,16 @@
+
 """API request/response models (Person 1). STATUS: REAL.
 
 These Pydantic models mirror shared/schemas/*.json. If you change one, change
 the other in the same pull request; tests/test_integration.py fails when
 the sample data stops validating against both.
 """
+
 from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
 
 FaultInjection = Literal["wrong_tool_result", "inconsistent_answer"]
 
@@ -21,7 +24,10 @@ class TaskRequest(_Strict):
     task: str = Field(min_length=1, max_length=500)
     fault_injection: FaultInjection | None = Field(
         default=None,
-        description="TEST-ONLY: deliberately corrupt the run so the reviewer has something to catch.",
+        description=(
+            "TEST-ONLY: deliberately corrupt the run so the reviewer "
+            "has something to catch."
+        ),
     )
 
 
@@ -130,6 +136,31 @@ class Improvement(_Strict):
     status: Literal["proposed"]
 
 
+# ---- Independent AI specialist reviewers -------------------------------
+class SpecialistCheck(_Strict):
+    check_id: str
+    status: Literal["pass", "fail", "skipped"]
+    detail: str
+
+
+class SpecialistReview(_Strict):
+    reviewer: str
+    role: Literal["tool_use", "task_completion"]
+    version: str
+    mode: Literal["ollama"]
+    model: str
+    status: Literal[
+        "completed",
+        "timeout",
+        "unavailable",
+        "invalid_response",
+    ]
+    verdict: Literal["pass", "needs_attention", "fail"]
+    checks: list[SpecialistCheck]
+    summary: str
+    latency_ms: float = Field(ge=0)
+
+
 class ReviewerResult(_Strict):
     review_id: str
     execution_id: str
@@ -141,6 +172,12 @@ class ReviewerResult(_Strict):
     audit: AuditResult
     trust: TrustScore
     improvements: list[Improvement]
+
+    # Advisory AI reviews. They do not override the deterministic reviewer.
+    # Default preserves compatibility with previously stored review records.
+    specialist_reviews: list[SpecialistReview] = Field(
+        default_factory=list
+    )
 
 
 # ---- API-only responses --------------------------------------------------

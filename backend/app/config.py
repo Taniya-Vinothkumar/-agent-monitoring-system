@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen2.5:3b"
     ollama_timeout_seconds: float = 90.0
 
+    # Independent AI specialist reviewers
+    specialist_reviews_enabled: bool = False
+    ollama_specialist_timeout_seconds: float = 45.0
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [
