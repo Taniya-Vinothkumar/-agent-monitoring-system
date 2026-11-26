@@ -1,10 +1,10 @@
-
 import { useEffect, useState } from "react";
 import ExecutionTrace from "../components/ExecutionTrace.jsx";
 import ReviewerResults from "../components/ReviewerResults.jsx";
 import TrustScore from "../components/TrustScore.jsx";
+import EvidenceSummary from "../components/EvidenceSummary.jsx";
 import StatusBadge from "../components/common/StatusBadge.jsx";
-import { loadBundle } from "../services/api.js";
+import { api, loadBundle } from "../services/api.js";
 
 export default function Monitoring({ items, selectedId, onSelect }) {
   const activeId =
@@ -13,6 +13,7 @@ export default function Monitoring({ items, selectedId, onSelect }) {
       : items[0]?.execution_id;
 
   const [bundle, setBundle] = useState(null);
+  const [evidence, setEvidence] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -21,11 +22,21 @@ export default function Monitoring({ items, selectedId, onSelect }) {
     let cancelled = false;
 
     setBundle(null);
+    setEvidence(null);
     setError(null);
 
-    loadBundle(activeId)
-      .then((b) => !cancelled && setBundle(b))
-      .catch((e) => !cancelled && setError(e.message));
+    Promise.all([
+      loadBundle(activeId),
+      api.getEvidence(activeId),
+    ])
+      .then(([loadedBundle, loadedEvidence]) => {
+        if (cancelled) return;
+        setBundle(loadedBundle);
+        setEvidence(loadedEvidence);
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message);
+      });
 
     return () => {
       cancelled = true;
@@ -77,6 +88,7 @@ export default function Monitoring({ items, selectedId, onSelect }) {
           <>
             <TrustScore trust={bundle.review.trust} />
             <ReviewerResults review={bundle.review} />
+            <EvidenceSummary evidence={evidence} />
             <ExecutionTrace execution={bundle.execution} />
           </>
         )}
