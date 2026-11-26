@@ -1,8 +1,10 @@
-"""API endpoints (Person 1). STATUS: REAL. Contract: docs/api_contract.md."""
+﻿"""API endpoints (Person 1). STATUS: REAL. Contract: docs/api_contract.md."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from backend.app.api.schemas import (
+    AuthorizationRequest,
+    AuthorizationResponse,
     EvidenceSummary,
     ExecutionListItem,
     ExecutionTrace,
@@ -10,6 +12,10 @@ from backend.app.api.schemas import (
     ReviewerResult,
     TaskRequest,
     TaskSubmitResponse,
+)
+from backend.app.services.authorization import (
+    AuthorizationError,
+    authorize_reviewers,
 )
 from backend.app.config import Settings, get_settings
 from backend.app.database.connection import get_session
@@ -61,3 +67,36 @@ def get_evidence(execution_id: str, session: Session = Depends(get_session)):
 @router.get("/executions/{execution_id}/review", response_model=ReviewerResult)
 def get_review(execution_id: str, session: Session = Depends(get_session)):
     return _or_404(integration.get_review(session, execution_id), "Review", execution_id)
+
+
+@router.post(
+    "/reviewer/authorize",
+    response_model=AuthorizationResponse,
+    status_code=status.HTTP_200_OK,
+)
+def authorize_reviewer_endpoint(
+    request: AuthorizationRequest,
+    session: Session = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+):
+    """Measure reviewer reliability using stored execution evidence."""
+
+    try:
+        result = authorize_reviewers(
+            session=session,
+            execution_ids=request.execution_ids,
+            settings=settings,
+            include_specialists=request.include_specialists,
+        )
+        return AuthorizationResponse(**result)
+
+    except AuthorizationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Authorization could not be completed: {exc}",
+        ) from exc

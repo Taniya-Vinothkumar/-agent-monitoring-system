@@ -1,0 +1,53 @@
+
+/* =================================
+   GUARDIAN DARK THEME (DEFAULT)
+================================= */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg-primary: #071326;
+  --bg-secondary: #0b1930;
+  --bg-surface: #0d1d35;
+  --bg-panel: #102541;
+
+  --border-color: #164a70;
+  --border-subtle: #1b3552;
+
+  --accent-primary: #18b8e8;
+  --accent-secondary: #287bff;
+  --accent-glow: #00cfff;
+
+  --text-primary: #e6f2ff;
+  --text-secondary: #91a8c2;
+  --text-muted: #70849e;
+
+  --shadow-panel: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* =================================
+   GUARDIAN LIGHT THEME
+================================= */
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-primary: #f3f7fc;
+  --bg-secondary: #edf3f9;
+  --bg-surface: #ffffff;
+  --bg-panel: #f8fafd;
+
+  --border-color: #d6e2f0;
+  --border-subtle: #e5edf5;
+
+  --accent-primary: #087ead;
+  --accent-secondary: #2563eb;
+  --accent-glow: #38bdf8;
+
+  --text-primary: #14243a;
+  --text-secondary: #61748c;
+  --text-muted: #8494a8;
+
+  --shadow-panel: 0 4px 20px rgba(25, 55, 90, 0.08);
+}

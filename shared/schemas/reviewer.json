@@ -1,8 +1,9 @@
+
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agent-monitoring-system.local/schemas/reviewer.json",
   "title": "ReviewerResult",
-  "description": "Complete reviewer output for one execution. Produced by reviewer.review_execution() (Person 2) and stored/served by the backend (Person 1).",
+  "description": "Complete reviewer output for one execution, including deterministic and optional AI specialist reviews.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -198,6 +199,104 @@
               "proposed"
             ],
             "description": "Nothing is ever applied automatically."
+          }
+        }
+      }
+    },
+    "specialist_reviews": {
+      "type": "array",
+      "description": "Optional advisory reviews from independent AI specialist roles. These do not override the deterministic reviewer verdict or trust score.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reviewer",
+          "role",
+          "version",
+          "mode",
+          "model",
+          "status",
+          "verdict",
+          "checks",
+          "summary",
+          "latency_ms"
+        ],
+        "properties": {
+          "reviewer": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "tool_use",
+              "task_completion"
+            ]
+          },
+          "version": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "ollama"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "timeout",
+              "unavailable",
+              "invalid_response"
+            ]
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "needs_attention",
+              "fail"
+            ]
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "check_id",
+                "status",
+                "detail"
+              ],
+              "properties": {
+                "check_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "skipped"
+                  ]
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "summary": {
+            "type": "string"
+          },
+          "latency_ms": {
+            "type": "number",
+            "minimum": 0
           }
         }
       }
