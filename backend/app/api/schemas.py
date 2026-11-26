@@ -203,3 +203,24 @@ class ExecutionListItem(_Strict):
 class HealthResponse(_Strict):
     status: Literal["ok"]
     app: str
+
+# ---- Reviewer authorization ----------------------------------------------
+class AuthorizationRequest(_Strict):
+    execution_ids: list[str] = Field(
+        min_length=10,
+        max_length=100,
+        description="IDs of completed, clean arithmetic executions stored by the backend.",
+    )
+    include_specialists: bool = Field(
+        default=False,
+        description="Whether to include the slower Ollama specialist reviewers.",
+    )
+
+
+class AuthorizationResponse(_Strict):
+    status: Literal["completed"]
+    source_execution_count: int = Field(ge=10, le=100)
+    unique_source_cases: int = Field(ge=0)
+    canary_summary: dict[str, Any]
+    reliability: dict[str, Any]
+    authorization_decisions: list[dict[str, Any]]

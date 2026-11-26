@@ -1,4 +1,4 @@
-﻿"""Controlled canary evaluations for reviewer reliability.
+"""Controlled canary evaluations for reviewer reliability.
 
 Canaries operate on copied execution/evidence dictionaries. They never modify
 live executions, API fault-injection options, or persisted database records.
@@ -7,6 +7,8 @@ Detection is category-specific: a generic warning does not count as detection.
 """
 
 import copy
+import hashlib
+import json
 from typing import Any, Callable
 
 from reviewer import review_execution
@@ -40,6 +42,43 @@ SPECIALIST_TERMS = {
         "incomplete_answer": ("complete", "addresses_request", "incomplete"),
     },
 }
+
+def _stable_fingerprint(value: Any) -> str:
+    """Create a stable SHA-256 fingerprint for scenario evidence."""
+    serialized = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _scenario_fingerprint(execution: dict, evidence: dict) -> str:
+    """Fingerprint substantive scenario content, excluding volatile metadata."""
+    execution_copy = copy.deepcopy(execution)
+    evidence_copy = copy.deepcopy(evidence)
+
+    for key in (
+        "execution_id",
+        "started_at",
+        "finished_at",
+        "total_duration_ms",
+    ):
+        execution_copy.pop(key, None)
+
+    for step in execution_copy.get("steps", []):
+        step.pop("timestamp", None)
+        step.pop("duration_ms", None)
+
+    evidence_copy.pop("execution_id", None)
+    evidence_copy.pop("total_duration_ms", None)
+
+    return _stable_fingerprint({
+        "execution": execution_copy,
+        "evidence": evidence_copy,
+    })
+
 
 FAILURE_CATEGORIES = (
     "wrong_tool",
@@ -170,8 +209,12 @@ def _make_scenarios(
     execution = copy.deepcopy(original_execution)
     evidence = copy.deepcopy(original_evidence)
 
-    wrong_expression = "12 + 8"
-    wrong_result = 20.0
+    original_claim = evidence["verifiable_claims"][0]
+    original_expression = original_claim["input"]
+    original_result = float(original_claim["claimed_result"])
+
+    wrong_expression = f"({original_expression}) + 1"
+    wrong_result = original_result + 1.0
 
     _set_arithmetic_result(
         execution, evidence, wrong_expression, wrong_result
@@ -193,11 +236,14 @@ def _make_scenarios(
     execution = copy.deepcopy(original_execution)
     evidence = copy.deepcopy(original_evidence)
 
-    expression = evidence["verifiable_claims"][0]["input"]
-    _set_arithmetic_result(execution, evidence, expression, 16.0)
+    claim = evidence["verifiable_claims"][0]
+    expression = claim["input"]
+    wrong_result = float(claim["claimed_result"]) + 1.0
+
+    _set_arithmetic_result(execution, evidence, expression, wrong_result)
     _set_final_answer(
         execution, evidence,
-        f"The result of {expression} is 16."
+        f"The result of {expression} is {wrong_result:g}."
     )
     scenarios.append({
         "scenario": "wrong_tool_result",
@@ -210,10 +256,13 @@ def _make_scenarios(
     execution = copy.deepcopy(original_execution)
     evidence = copy.deepcopy(original_evidence)
 
-    expression = evidence["verifiable_claims"][0]["input"]
+    claim = evidence["verifiable_claims"][0]
+    expression = claim["input"]
+    wrong_result = float(claim["claimed_result"]) + 1.0
+
     _set_final_answer(
         execution, evidence,
-        f"The result of {expression} is 16."
+        f"The result of {expression} is {wrong_result:g}."
     )
     scenarios.append({
         "scenario": "inconsistent_answer",
@@ -319,19 +368,53 @@ def run_canary_suite(
     timeout_seconds: float = 45.0,
     repetitions: int = 1,
     specialist_runner: Callable = run_specialist_reviewers,
+    source_cases: list[tuple[dict, dict]] | None = None,
 ) -> dict:
     """Run controlled canaries and report reviewer detection performance.
 
     Specialist calls are disabled by default because they require Ollama
     and can take several seconds per reviewer per scenario.
 
-    Repetitions allow repeated AI measurements. Each repetition contains
-    one clean control and one sample from each failure category.
+    Repetitions allow repeated measurements but do not create independent
+    source cases. Supply source_cases as a list of (execution, evidence)
+    pairs to evaluate genuinely different source executions.
     """
     if repetitions < 1:
         raise ValueError("repetitions must be at least 1")
 
-    scenarios = _make_scenarios(execution, evidence)
+    if source_cases is None:
+        source_cases = [(execution, evidence)]
+
+    if not source_cases:
+        raise ValueError("source_cases must contain at least one case")
+
+    scenarios = []
+
+    for case_index, (case_execution, case_evidence) in enumerate(source_cases):
+        if not isinstance(case_execution, dict) or not isinstance(case_evidence, dict):
+            raise TypeError("Each source case must contain execution and evidence dictionaries")
+
+        source_fingerprint = _scenario_fingerprint(
+            case_execution,
+            case_evidence,
+        )
+
+        case_scenarios = _make_scenarios(case_execution, case_evidence)
+
+        for scenario in case_scenarios:
+            scenario["fingerprint"] = _scenario_fingerprint(
+                scenario["execution"],
+                scenario["evidence"],
+            )
+            scenario["source_fingerprint"] = source_fingerprint
+            scenario["source_case_index"] = case_index
+
+        scenarios.extend(case_scenarios)
+
+    unique_source_fingerprints = sorted({
+        scenario["source_fingerprint"]
+        for scenario in scenarios
+    })
 
     metrics = {}
     records = []
@@ -421,6 +504,8 @@ def run_canary_suite(
                 records.append({
                     "repetition": repetition,
                     "scenario": scenario["scenario"],
+                    "scenario_fingerprint": scenario["fingerprint"],
+                    "source_fingerprint": scenario["source_fingerprint"],
                     "category": category,
                     "reviewer": reviewer_id,
                     "status": result.get("status", "completed"),
@@ -429,6 +514,11 @@ def run_canary_suite(
                         _reviewer_detected(reviewer_id, category, result)
                         if category is not None
                         and result.get("status", "completed") == "completed"
+                        else None
+                    ),
+                    "false_alarm": (
+                        _clean_false_alarm(reviewer_id, result)
+                        if category is None
                         else None
                     ),
                 })
@@ -449,9 +539,24 @@ def run_canary_suite(
 
     return {
         "repetitions": repetitions,
+        "source_cases_submitted": len(source_cases),
+        "unique_source_cases": len(unique_source_fingerprints),
         "scenarios_per_repetition": len(scenarios),
         "total_scenarios": len(scenarios) * repetitions,
         "failure_categories": list(FAILURE_CATEGORIES),
+        "evidence_diversity": {
+            "source_case_count": len(unique_source_fingerprints),
+            "unique_source_fingerprints": unique_source_fingerprints,
+            "repetitions_are_independent": False,
+            "independent_samples_by_category": {
+                category: len({
+                    record["scenario_fingerprint"]
+                    for record in records
+                    if record["category"] == category
+                })
+                for category in FAILURE_CATEGORIES
+            },
+        },
         "reviewer_metrics": metrics,
         "results": records,
     }
