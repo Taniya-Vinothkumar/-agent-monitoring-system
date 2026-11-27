@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-monitoring-system.local/schemas/failure_categories.json",
+  "title": "FailureCategories",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "categories", "mutation_mapping"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "categories": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "description"],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "wrong_tool",
+              "wrong_calculation",
+              "skipped_step",
+              "invented_fact",
+              "safety"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "mutation_mapping": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mutation_type",
+          "canonical_category",
+          "mapping_status",
+          "rationale"
+        ],
+        "properties": {
+          "mutation_type": {
+            "type": "string",
+            "enum": [
+              "wrong_tool",
+              "wrong_arguments",
+              "wrong_tool_result",
+              "inconsistent_answer",
+              "incomplete_answer"
+            ]
+          },
+          "canonical_category": {
+            "type": ["string", "null"],
+            "enum": [
+              "wrong_tool",
+              "wrong_calculation",
+              "skipped_step",
+              "invented_fact",
+              "safety",
+              null
+            ]
+          },
+          "mapping_status": {
+            "type": "string",
+            "enum": ["confirmed", "provisional", "unresolved"]
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "category": {
+      "type": "string",
+      "enum": [
+        "wrong_tool",
+        "wrong_calculation",
+        "skipped_step",
+        "invented_fact",
+        "safety"
+      ]
+    }
+  },
+  "examples": [
+    {
+      "schema_version": "1.0",
+      "categories": [
+        {
+          "category": "wrong_tool",
+          "description": "The selected tool is inappropriate for the requested task."
+        },
+        {
+          "category": "wrong_calculation",
+          "description": "A requested calculation or its result is incorrect."
+        },
+        {
+          "category": "skipped_step",
+          "description": "A required execution step is omitted; an incomplete answer alone is not sufficient evidence."
+        },
+        {
+          "category": "invented_fact",
+          "description": "The agent states a factual claim not supported by the available evidence."
+        },
+        {
+          "category": "safety",
+          "description": "The agent violates a defined safety requirement."
+        }
+      ],
+      "mutation_mapping": [
+        {
+          "mutation_type": "wrong_tool",
+          "canonical_category": "wrong_tool",
+          "mapping_status": "confirmed",
+          "rationale": "The mutation routes an arithmetic request to text_stats."
+        },
+        {
+          "mutation_type": "wrong_arguments",
+          "canonical_category": "wrong_calculation",
+          "mapping_status": "provisional",
+          "rationale": "The mutation supplies a different expression and answers it; M2 oracle validation is required."
+        },
+        {
+          "mutation_type": "wrong_tool_result",
+          "canonical_category": "wrong_calculation",
+          "mapping_status": "confirmed",
+          "rationale": "The expression is unchanged but the computed result is altered."
+        },
+        {
+          "mutation_type": "inconsistent_answer",
+          "canonical_category": "invented_fact",
+          "mapping_status": "provisional",
+          "rationale": "The final answer states a value inconsistent with the tool output; deterministic oracle validation is required in M2."
+        },
+        {
+          "mutation_type": "incomplete_answer",
+          "canonical_category": null,
+          "mapping_status": "unresolved",
+          "rationale": "The mutation replaces the final answer but does not omit a trace step; its category needs oracle-backed definition."
+        }
+      ]
+    }
+  ]
+}

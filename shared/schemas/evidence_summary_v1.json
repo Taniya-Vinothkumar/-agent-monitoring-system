@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-monitoring-system.local/schemas/evidence_summary_v1.json",
+  "title": "EvidenceSummaryV1",
+  "description": "Versioned target evidence contract. This schema is not wired into the live API in M0-A.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "execution_id",
+    "total_steps",
+    "step_type_counts",
+    "tool_call_count",
+    "tools_used",
+    "error_count",
+    "errors",
+    "total_duration_ms",
+    "has_final_answer",
+    "final_answer",
+    "verifiable_claims"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "total_steps": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "step_type_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "tool_call_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tools_used": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "error_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "message"],
+        "properties": {
+          "step_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "total_duration_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "has_final_answer": {
+      "type": "boolean"
+    },
+    "final_answer": {
+      "type": ["string", "null"]
+    },
+    "verifiable_claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "kind", "input", "claimed_result"],
+        "properties": {
+          "step_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["arithmetic", "word_count"]
+          },
+          "input": {
+            "type": "string"
+          },
+          "claimed_result": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}

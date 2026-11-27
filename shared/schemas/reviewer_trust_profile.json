@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-monitoring-system.local/schemas/reviewer_trust_profile.json",
+  "title": "ReviewerTrustProfile",
+  "description": "Reviewer reliability across reviewer-canary cases; distinct from an execution score or legacy per-review trust_score.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "reviewer_id",
+    "model_name",
+    "prompt_version",
+    "audit_round",
+    "computed_at",
+    "by_category"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewer_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_name": {
+      "type": ["string", "null"]
+    },
+    "prompt_version": {
+      "type": ["string", "null"]
+    },
+    "audit_round": {
+      "type": "string",
+      "minLength": 1
+    },
+    "computed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "by_category": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "category",
+          "failure_samples",
+          "detections",
+          "missed_detections",
+          "clean_controls",
+          "false_alarms",
+          "detection_rate",
+          "false_alarm_rate",
+          "wilson_detection_lower_bound"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": [
+              "wrong_tool",
+              "wrong_calculation",
+              "skipped_step",
+              "invented_fact",
+              "safety"
+            ]
+          },
+          "failure_samples": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "detections": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missed_detections": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "clean_controls": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "false_alarms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "detection_rate": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "false_alarm_rate": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 1
+          },
+          "wilson_detection_lower_bound": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    }
+  }
+}

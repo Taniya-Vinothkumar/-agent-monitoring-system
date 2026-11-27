@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-monitoring-system.local/schemas/reviewer_result_v1.json",
+  "title": "ReviewerResultV1",
+  "description": "Aggregated reviewer-panel result plus a separate deterministic verifier result.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "execution_id",
+    "findings",
+    "deterministic_verifier",
+    "verdict",
+    "execution_score",
+    "disagreement",
+    "escalation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "reviewer_finding.json"
+      }
+    },
+    "deterministic_verifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "checks"],
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "enum": ["pass", "needs_attention", "fail"]
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["check_id", "status", "evidence_step_ids", "detail"],
+            "properties": {
+              "check_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "status": {
+                "type": "string",
+                "enum": ["pass", "fail", "skipped"]
+              },
+              "evidence_step_ids": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "detail": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["pass", "needs_attention", "fail"]
+    },
+    "execution_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Agent-run rating, not reviewer reliability."
+    },
+    "disagreement": {
+      "type": "boolean"
+    },
+    "escalation": {
+      "type": "string",
+      "enum": ["none", "oracle"]
+    }
+  }
+}

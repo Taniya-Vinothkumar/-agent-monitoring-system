@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-monitoring-system.local/schemas/agent_config.json",
+  "title": "AgentConfig",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "agent_id",
+    "config_version",
+    "parent_version",
+    "instructions",
+    "tool_routing_rules",
+    "guardrails",
+    "retrieval_settings",
+    "content_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "config_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_version": {
+      "type": ["string", "null"]
+    },
+    "instructions": {
+      "type": "string"
+    },
+    "tool_routing_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule_id", "task_match", "tool_name", "priority"],
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "task_match": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tool_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "guardrails": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "retrieval_settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "top_k", "source_ids"],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "top_k": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "Hash of canonical JSON with content_hash omitted."
+    }
+  }
+}

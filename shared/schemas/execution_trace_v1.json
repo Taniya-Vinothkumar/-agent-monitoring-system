@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-monitoring-system.local/schemas/execution_trace_v1.json",
+  "title": "ExecutionTraceV1",
+  "description": "Versioned target trace contract. This schema is not wired into the live API in M0-A.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "execution_id",
+    "task",
+    "status",
+    "agent",
+    "config_version",
+    "started_at",
+    "finished_at",
+    "total_duration_ms",
+    "steps",
+    "final_answer"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "execution_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "failed"]
+    },
+    "agent": {
+      "$ref": "#/$defs/agent"
+    },
+    "config_version": {
+      "type": ["string", "null"]
+    },
+    "fault_injection": {
+      "type": ["string", "null"],
+      "enum": ["wrong_tool_result", "inconsistent_answer", null],
+      "description": "Legacy test-only field. Its current API behavior is unchanged by M0-A."
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "total_duration_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "final_answer": {
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "mode"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["mock_rule_based", "ollama"]
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step_id",
+        "kind",
+        "type",
+        "name",
+        "tool_name",
+        "status",
+        "inputs",
+        "input",
+        "outputs",
+        "output",
+        "error",
+        "timestamp",
+        "duration_ms"
+      ],
+      "properties": {
+        "step_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["plan", "tool_call", "final_answer"]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["plan", "tool_call", "final_answer"],
+          "description": "Legacy alias of kind."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Legacy step name; retained alongside tool_name."
+        },
+        "tool_name": {
+          "type": ["string", "null"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ok", "error"]
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Normalized input representation."
+        },
+        "input": {
+          "type": "object",
+          "description": "Legacy alias of inputs."
+        },
+        "outputs": {
+          "type": ["object", "null"],
+          "description": "Normalized output representation."
+        },
+        "output": {
+          "type": ["object", "null"],
+          "description": "Legacy alias of outputs."
+        },
+        "error": {
+          "type": ["string", "null"]
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "tool_call"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "tool_name": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "tool_name": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

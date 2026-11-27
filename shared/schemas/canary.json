@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-monitoring-system.local/schemas/canary.json",
+  "title": "ReviewerCanaryRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "canary_id",
+    "source_kind",
+    "source_trace_ref",
+    "copied_trace_ref",
+    "mutation_type",
+    "failure_category",
+    "mapping_status",
+    "isolation"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "canary_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_kind": {
+      "type": "string",
+      "enum": ["injected_fault", "clean_control", "replayed_real_failure"]
+    },
+    "source_trace_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_id", "trace_hash"],
+      "properties": {
+        "execution_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trace_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "copied_trace_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["copy_id", "storage_scope"],
+      "properties": {
+        "copy_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "storage_scope": {
+          "const": "reviewer_canaries"
+        }
+      }
+    },
+    "mutation_type": {
+      "type": ["string", "null"],
+      "enum": [
+        "wrong_tool",
+        "wrong_arguments",
+        "wrong_tool_result",
+        "inconsistent_answer",
+        "incomplete_answer",
+        null
+      ]
+    },
+    "failure_category": {
+      "type": ["string", "null"],
+      "enum": [
+        "wrong_tool",
+        "wrong_calculation",
+        "skipped_step",
+        "invented_fact",
+        "safety",
+        null
+      ]
+    },
+    "mapping_status": {
+      "type": "string",
+      "enum": ["confirmed", "provisional", "unresolved", "not_applicable"]
+    },
+    "isolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "live_execution_record_created",
+        "reviewer_input_contains_canary_metadata"
+      ],
+      "properties": {
+        "live_execution_record_created": {
+          "const": false
+        },
+        "reviewer_input_contains_canary_metadata": {
+          "const": false
+        }
+      }
+    },
+    "difficulty": {
+      "type": ["string", "null"],
+      "enum": ["easy", "medium", "hard", null]
+    },
+    "oracle_rule_reference": {
+      "type": ["string", "null"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "clean_control"
+          }
+        },
+        "required": ["source_kind"]
+      },
+      "then": {
+        "properties": {
+          "mutation_type": {
+            "type": "null"
+          },
+          "failure_category": {
+            "type": "null"
+          },
+          "mapping_status": {
+            "const": "not_applicable"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "injected_fault"
+          }
+        },
+        "required": ["source_kind"]
+      },
+      "then": {
+        "properties": {
+          "mutation_type": {
+            "type": "string"
+          },
+          "mapping_status": {
+            "enum": ["confirmed", "provisional", "unresolved"]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_kind": {
+            "const": "replayed_real_failure"
+          }
+        },
+        "required": ["source_kind"]
+      },
+      "then": {
+        "properties": {
+          "mutation_type": {
+            "type": "null"
+          },
+          "mapping_status": {
+            "enum": ["confirmed", "provisional", "unresolved"]
+          }
+        }
+      }
+    }
+  ]
+}
