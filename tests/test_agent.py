@@ -49,3 +49,46 @@ def test_fault_injection_changes_the_run():
     assert wrong.steps[1].output["result"] == 5
     inconsistent = MockAgentExecutor().run(TaskRequest(task="What is 2 + 2?", fault_injection="inconsistent_answer"))
     assert inconsistent.steps[1].output["result"] == 4 and "5" in inconsistent.final_answer
+
+def test_planner_routes_factual_questions():
+    plan = plan_task("What is the colour of an apple?")
+    assert plan.kind == "factual_qa"
+    assert plan.tool == "factual_qa"
+    assert plan.tool_input == {"question": "What is the colour of an apple?"}
+
+
+def test_planner_preserves_text_stats_routing():
+    plan = plan_task("Count the words in: hello big world")
+    assert plan.kind == "text_stats"
+    assert plan.tool == "text_stats"
+
+
+def test_factual_qa_returns_source_and_unverified_status(monkeypatch):
+    from backend.app.agent import task_handler
+
+    responses = iter([
+        {"query": {"search": [{"title": "Apple"}]}},
+        {"query": {"pages": {"1": {"extract": "Apple is a fruit. It grows on trees."}}}},
+    ])
+
+    monkeypatch.setattr(
+        task_handler,
+        "urlopen",
+        lambda *args, **kwargs: type(
+            "Response",
+            (),
+            {
+                "__enter__": lambda self: self,
+                "__exit__": lambda self, *exc: None,
+                "read": lambda self: __import__("json").dumps(next(responses)).encode("utf-8"),
+            },
+        )(),
+    )
+
+    result = task_handler.factual_qa("What is an apple?")
+
+    assert result["question"] == "What is an apple?"
+    assert result["answer"]
+    assert result["sources"][0]["title"] == "Apple"
+    assert result["sources"][0]["url"].startswith("https://")
+    assert result["verification_status"] == "unverified"

@@ -1,4 +1,4 @@
-
+﻿
 import { useCallback, useEffect, useState } from "react";
 import {
   Sun,
@@ -15,7 +15,8 @@ import {
 
 import Home from "./pages/Home.jsx";
 import Monitoring from "./pages/Monitoring.jsx";
-import { loadExecutions } from "./services/api.js";
+import Approvals from "./pages/Approvals.jsx";
+import { api, loadExecutions } from "./services/api.js";
 import { useTheme } from "./context/ThemeContext.jsx";
 
 const SOURCE_NOTES = {
@@ -30,11 +31,15 @@ const SOURCE_NOTES = {
 export default function App() {
   const [page, setPage] = useState("home");
   const [selectedId, setSelectedId] = useState(null);
+
   const [data, setData] = useState({
     items: [],
     source: "loading",
     error: null,
   });
+
+  const [healthStatus, setHealthStatus] = useState("checking");
+  const [healthApp, setHealthApp] = useState("");
 
   const { theme, toggleTheme } = useTheme();
 
@@ -48,10 +53,45 @@ export default function App() {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    let active = true;
+
+    const checkHealth = async () => {
+      try {
+        const result = await api.health();
+
+        if (active) {
+          setHealthStatus(result.status === "ok" ? "online" : "offline");
+          setHealthApp(result.app || "");
+        }
+      } catch {
+        if (active) {
+          setHealthStatus("offline");
+          setHealthApp("");
+        }
+      }
+    };
+
+    checkHealth();
+
+    const interval = setInterval(checkHealth, 15000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   const open = (id) => {
     setSelectedId(id);
     setPage("monitoring");
   };
+
+  const healthLabel = {
+    checking: "CHECKING BACKEND",
+    online: "BACKEND ONLINE",
+    offline: "BACKEND OFFLINE",
+  }[healthStatus];
 
   const navigation = [
     {
@@ -93,7 +133,7 @@ export default function App() {
         </div>
 
         <div className="sidebar-status">
-          <span className="status-dot" />
+          <span className={`status-dot status-${healthStatus}`} />
           SYSTEM CONSOLE
         </div>
 
@@ -112,13 +152,13 @@ export default function App() {
                       page === item.id ? "sidebar-link active" : "sidebar-link"
                     }
                     onClick={() => {
-                      if (item.id === "home" || item.id === "monitoring") {
+                      if (["home", "monitoring", "approvals"].includes(item.id)) {
                         setPage(item.id);
                       }
                     }}
-                    disabled={!["home", "monitoring"].includes(item.id)}
+                    disabled={!["home", "monitoring", "approvals"].includes(item.id)}
                     title={
-                      !["home", "monitoring"].includes(item.id)
+                      !["home", "monitoring", "approvals"].includes(item.id)
                         ? "Coming in a later development step"
                         : item.label
                     }
@@ -139,7 +179,7 @@ export default function App() {
         <div className="sidebar-footer">
           <Radio size={15} />
           <span>GUARDIAN CORE</span>
-          <span className="status-dot" />
+          <span className={`status-dot status-${healthStatus}`} />
         </div>
       </aside>
 
@@ -148,14 +188,18 @@ export default function App() {
           <div className="page-heading">
             <span className="breadcrumb">GUARDIAN CONSOLE /</span>
             <h1>
-              {page === "home" ? "Overview" : "Monitoring"}
+              {page === "home" ? "Overview" : page === "approvals" ? "Approvals" : "Monitoring"}
             </h1>
           </div>
 
           <div className="header-actions">
-            <span className="system-indicator">
-              <span className="status-dot" />
-               CONSOLE ACTIVE
+            <span
+              className="system-indicator"
+              title={healthApp ? `Application: ${healthApp}` : "Backend health"}
+              aria-live="polite"
+            >
+              <span className={`status-dot status-${healthStatus}`} />
+              {healthLabel}
             </span>
 
             <button
@@ -192,6 +236,8 @@ export default function App() {
                   open(id);
                 }}
               />
+            ) : page === "approvals" ? (
+              <Approvals items={data.items} />
             ) : (
               <Monitoring
                 items={data.items}
@@ -205,3 +251,7 @@ export default function App() {
     </div>
   );
 }
+
+
+
+

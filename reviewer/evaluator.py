@@ -165,6 +165,38 @@ def _latency(execution, evidence, budget_ms):
                   f"Run took {total:g} ms (budget {budget_ms:g} ms).")
 
 
+def _factual_evidence_contract_satisfied(execution, evidence):
+    """Require factual QA evidence with declared status and sources."""
+    records = evidence.get("factual_evidence") or []
+    valid = bool(records) and all(
+        item.get("verification_status") == "verified"
+        and bool(item.get("sources"))
+        and isinstance(item.get("step_id"), int)
+        and item.get("step_id") > 0
+        for item in records
+    )
+
+    step_ids = [
+        item["step_id"] for item in records
+        if isinstance(item.get("step_id"), int) and item["step_id"] > 0
+    ]
+
+    detail = (
+        f"{len(records)} factual evidence record(s) have verified status and sources."
+        if valid else
+        "Factual evidence is missing, unsourced, or lacks declared verified status."
+    )
+
+    return _check(
+        "factual_evidence_contract_satisfied",
+        "Factual answers have evidence records with declared verification status and sources.",
+        "critical",
+        "pass" if valid else "fail",
+        detail,
+        step_ids,
+    )
+
+
 # ---- Entry point --------------------------------------------------------
 def evaluate(execution: dict, evidence: dict, *, latency_budget_ms: float = 5000.0) -> dict:
     """Run all checks. Returns a review without audit/trust/improvements yet."""
@@ -176,6 +208,14 @@ def evaluate(execution: dict, evidence: dict, *, latency_budget_ms: float = 5000
         _answer_matches_tools(execution, evidence),
         _latency(execution, evidence, latency_budget_ms),
     ]
+
+    is_factual = (
+        "factual_qa" in evidence.get("tools_used", [])
+        or bool(evidence.get("factual_evidence"))
+    )
+    if is_factual:
+        checks.append(_factual_evidence_contract_satisfied(execution, evidence))
+
     return {
         "review_id": f"rev_{uuid.uuid4().hex[:12]}",
         "execution_id": execution["execution_id"],

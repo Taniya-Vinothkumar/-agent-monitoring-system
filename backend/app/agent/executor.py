@@ -33,21 +33,50 @@ class MockAgentExecutor:
         try:
             with recorder.step("tool_call", plan.tool, plan.tool_input) as step:
                 result = TOOLS[plan.tool](**plan.tool_input)
+
                 if request.fault_injection == "wrong_tool_result":
-                    key = "result" if plan.kind == "arithmetic" else "word_count"
-                    result[key] += 1
+                    if plan.kind == "arithmetic":
+                        result["result"] += 1
+                    elif plan.kind == "text_stats":
+                        result["word_count"] += 1
+
                 step.output = result
         except Exception:
-            # The failed step is already in the trace; the run ends without an answer.
             return recorder.finalize(final_answer=None)
 
-        key = "result" if plan.kind == "arithmetic" else "word_count"
-        stated = result[key] + (1 if request.fault_injection == "inconsistent_answer" else 0)
         if plan.kind == "arithmetic":
-            answer = f"The result of {plan.tool_input['expression']} is {_format_number(stated)}."
-        else:
+            stated = result["result"]
+            if request.fault_injection == "inconsistent_answer":
+                stated += 1
+            answer = (
+                f"The result of {plan.tool_input['expression']} is "
+                f"{_format_number(stated)}."
+            )
+        elif plan.kind == "text_stats":
+            stated = result["word_count"]
+            if request.fault_injection == "inconsistent_answer":
+                stated += 1
             answer = f"The text contains {_format_number(stated)} words."
+        elif plan.kind == "factual_qa":
+            answer = result["answer"].strip()
+            sources = result.get("sources", [])
+            if sources:
+                source_lines = [
+                    f"- {source['title']}: {source['url']}"
+                    for source in sources
+                ]
+                answer += "\n\nSources:\n" + "\n".join(source_lines)
+
+            status = result.get("verification_status", "unverified")
+            if status != "verified":
+                answer += (
+                    "\n\nVerification status: "
+                    f"{status}. This answer has not been independently verified."
+                )
+        else:
+            raise ValueError(f"Unsupported task kind: {plan.kind}")
 
         with recorder.step("final_answer", "compose_answer", {"tool_result": result}) as step:
             step.output = {"text": answer}
+
         return recorder.finalize(final_answer=answer)

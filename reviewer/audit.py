@@ -45,7 +45,16 @@ def audit_review(review: dict, execution: dict, evidence: dict) -> dict:
                              len(ids) == 1, f"Ids seen: {sorted(ids)}."))
 
     present = {c["check_id"] for c in checks}
-    absent = [c for c in REQUIRED_CHECK_IDS if c not in present]
+    required_ids = list(REQUIRED_CHECK_IDS)
+
+    is_factual = (
+        "factual_qa" in evidence.get("tools_used", [])
+        or bool(evidence.get("factual_evidence"))
+    )
+    if is_factual:
+        required_ids.append("factual_evidence_contract_satisfied")
+
+    absent = [c for c in required_ids if c not in present]
     findings.append(_finding("required_checks_present", "No required check was dropped.",
                              not absent,
                              f"Missing checks: {absent}." if absent else "All required checks present."))
