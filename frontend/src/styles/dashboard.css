@@ -96,14 +96,31 @@
   letter-spacing: 1.2px;
 }
 
+
 .status-dot {
   width: 8px;
   height: 8px;
   flex-shrink: 0;
   border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: none;
+}
+
+.status-dot.status-online {
   background: var(--status-healthy);
   box-shadow: 0 0 8px var(--status-healthy);
 }
+
+.status-dot.status-offline {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+.status-dot.status-checking {
+  background: #eab308;
+  box-shadow: 0 0 8px rgba(234, 179, 8, 0.5);
+}
+
 
 .sidebar-nav {
   display: flex;

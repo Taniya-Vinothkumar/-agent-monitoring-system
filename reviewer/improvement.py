@@ -12,6 +12,7 @@ SUGGESTIONS = {
     "tool_results_independently_verified": "A tool output disagreed with an independent re-computation. Fix or replace that tool before trusting this agent's results.",
     "final_answer_matches_tool_results": "The final answer states a value different from the tool output. Build the answer directly from the tool result instead of re-deriving it.",
     "latency_within_budget": "Profile the slowest step and optimise it, or raise the latency budget if the current one is unrealistic.",
+    "factual_evidence_contract_satisfied": "Provide factual evidence with source references and an accurate verification status. Do not mark an answer verified without independent verification.",
     "audit": "The review failed its own audit. Do not rely on this review; fix the reviewer and re-run it.",
 }
 

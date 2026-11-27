@@ -76,6 +76,19 @@ class VerifiableClaim(_Strict):
     claimed_result: float
 
 
+class FactualSource(_Strict):
+    title: str
+    url: str
+
+
+class FactualEvidence(_Strict):
+    step_id: int = Field(ge=1)
+    question: str
+    answer: str
+    sources: list[FactualSource]
+    verification_status: Literal["verified", "unverified", "unavailable"]
+
+
 class EvidenceSummary(_Strict):
     execution_id: str
     total_steps: int = Field(ge=0)
@@ -88,6 +101,7 @@ class EvidenceSummary(_Strict):
     has_final_answer: bool
     final_answer: str | None
     verifiable_claims: list[VerifiableClaim]
+    factual_evidence: list[FactualEvidence] = Field(default_factory=list)
 
 
 # ---- Reviewer result (shared/schemas/reviewer.json) ----------------------

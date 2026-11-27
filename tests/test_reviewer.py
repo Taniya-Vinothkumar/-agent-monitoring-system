@@ -122,3 +122,64 @@ def test_full_review_matches_the_shared_schema(execution, evidence):
     del review["trust"]
     with pytest.raises(SchemaValidationError):
         validate_review(review)
+
+def test_factual_qa_without_evidence_fails(execution, evidence):
+    evidence = copy.deepcopy(evidence)
+    evidence["tools_used"].append("factual_qa")
+
+    review = evaluate(execution, evidence)
+    assert statuses(review)["factual_evidence_contract_satisfied"] == "fail"
+    assert review["verdict"] == "fail"
+
+
+def test_factual_qa_unverified_source_fails(execution, evidence):
+    evidence = copy.deepcopy(evidence)
+    evidence["tools_used"].append("factual_qa")
+    evidence["factual_evidence"] = [{
+        "step_id": execution["steps"][0]["step_id"],
+        "verification_status": "unverified",
+        "sources": [{"title": "Example", "url": "https://example.com"}],
+    }]
+
+    review = evaluate(execution, evidence)
+    assert statuses(review)["factual_evidence_contract_satisfied"] == "fail"
+    assert review["verdict"] == "fail"
+
+
+def test_factual_qa_verified_evidence_passes_contract(execution, evidence):
+    evidence = copy.deepcopy(evidence)
+    evidence["tools_used"].append("factual_qa")
+    evidence["factual_evidence"] = [{
+        "step_id": execution["steps"][0]["step_id"],
+        "verification_status": "verified",
+        "sources": [{"title": "Example", "url": "https://example.com"}],
+    }]
+
+    review = evaluate(execution, evidence)
+    assert statuses(review)["factual_evidence_contract_satisfied"] == "pass"
+    assert audit_review(review, execution, evidence)["passed"]
+
+
+def test_factual_audit_detects_missing_required_check(execution, evidence):
+    evidence = copy.deepcopy(evidence)
+    evidence["tools_used"].append("factual_qa")
+    evidence["factual_evidence"] = [{
+        "step_id": execution["steps"][0]["step_id"],
+        "verification_status": "unverified",
+        "sources": [],
+    }]
+
+    review = evaluate(execution, evidence)
+    review["checks"] = [
+        check for check in review["checks"]
+        if check["check_id"] != "factual_evidence_contract_satisfied"
+    ]
+
+    audit = audit_review(review, execution, evidence)
+    assert not audit["passed"]
+    assert any(
+        finding["audit_id"] == "required_checks_present"
+        and finding["status"] == "fail"
+        for finding in audit["findings"]
+    )
+
