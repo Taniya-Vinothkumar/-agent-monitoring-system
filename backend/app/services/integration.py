@@ -14,8 +14,8 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.app.agent.executor import MockAgentExecutor
-from backend.app.agent.ollama_executor import OllamaAgentExecutor
+from backend.app.agent.guardian_adapter import GuardianAgentAdapter
+from backend.app.agent.trace_compat import v1_trace_to_legacy
 from backend.app.api.schemas import (
     EvidenceSummary,
     ExecutionListItem,
@@ -50,11 +50,15 @@ def process_task(
 ) -> tuple[ExecutionTrace, EvidenceSummary, ReviewerResult]:
     """Execute a task using the configured agent and review its output."""
 
-    # Step 1: Select execution engine.
-    if settings.agent_mode == "ollama":
-        trace = OllamaAgentExecutor(settings).run(request)
-    else:
-        trace = MockAgentExecutor().run(request)
+    # Step 1: Run the configured agent through the frozen adapter.
+    adapter = GuardianAgentAdapter(settings)
+    versioned_trace = adapter.run_task(
+        {
+            "text": request.task,
+            "fault_injection": request.fault_injection,
+        }
+    )
+    trace = ExecutionTrace.model_validate(v1_trace_to_legacy(versioned_trace))
 
     # Step 2: Aggregate evidence.
     evidence = aggregate_evidence(trace)
@@ -123,6 +127,11 @@ def process_task(
             settings.data_dir / "executions",
             trace.execution_id,
             trace_dict,
+        )
+        _write_json(
+            settings.data_dir / "executions_v1",
+            trace.execution_id,
+            dict(versioned_trace),
         )
         _write_json(
             settings.data_dir / "evaluation",

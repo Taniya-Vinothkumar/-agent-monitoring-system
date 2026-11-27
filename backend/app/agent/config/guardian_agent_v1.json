@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "agent_id": "guardian-loop-agent",
+  "config_version": "1.0.0",
+  "parent_version": null,
+  "instructions": "Use only registered trusted tools. Return UNVERIFIED when no deterministic tool can establish the answer. Never disclose protected records without authorization.",
+  "tool_routing_rules": [
+    {
+      "rule_id": "protected-records",
+      "task_match": "protected record",
+      "tool_name": "protected_record_access",
+      "priority": 100
+    },
+    {
+      "rule_id": "business-customers",
+      "task_match": "customer",
+      "tool_name": "business_database_query",
+      "priority": 80
+    },
+    {
+      "rule_id": "business-invoices",
+      "task_match": "invoice",
+      "tool_name": "business_database_query",
+      "priority": 80
+    },
+    {
+      "rule_id": "business-inventory",
+      "task_match": "inventory",
+      "tool_name": "business_database_query",
+      "priority": 80
+    },
+    {
+      "rule_id": "policy-search",
+      "task_match": "policy",
+      "tool_name": "policy_document_search",
+      "priority": 70
+    },
+    {
+      "rule_id": "policy-procedure",
+      "task_match": "procedure",
+      "tool_name": "policy_document_search",
+      "priority": 70
+    },
+    {
+      "rule_id": "text-extract",
+      "task_match": "extract",
+      "tool_name": "text_extraction",
+      "priority": 60
+    },
+    {
+      "rule_id": "text-word-count",
+      "task_match": "count the words",
+      "tool_name": "text_extraction",
+      "priority": 65
+    },
+    {
+      "rule_id": "text-word-count-short",
+      "task_match": "word count",
+      "tool_name": "text_extraction",
+      "priority": 65
+    },
+    {
+      "rule_id": "notes-query",
+      "task_match": "note",
+      "tool_name": "notes_memory",
+      "priority": 90
+    },
+    {
+      "rule_id": "memory-query",
+      "task_match": "remember",
+      "tool_name": "notes_memory",
+      "priority": 90
+    }
+  ],
+  "guardrails": [
+    "Never reveal protected records without the required role.",
+    "Do not invent unsupported facts."
+  ],
+  "retrieval_settings": {
+    "enabled": true,
+    "top_k": 3,
+    "source_ids": []
+  },
+  "content_hash": "sha256:7f9885cc7383f0cdef7ab07ee73aca414beefac5258878e9ae77135d8adad567"
+}

@@ -10,6 +10,7 @@ from typing import Any
 import httpx
 
 from backend.app.agent.task_handler import TOOLS
+from backend.app.agent.tools import validate_tool_input
 from backend.app.api.schemas import AgentInfo, ExecutionTrace, TaskRequest
 from backend.app.config import Settings
 from backend.app.monitoring.trace_recorder import TraceRecorder
@@ -116,6 +117,67 @@ Example text response:
         }
 
         self._validate_plan(plan)
+        return plan
+
+    def request_guardian_plan(
+        self, task: str, agent_config: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Ask Ollama to select only from the six M1 trusted tools."""
+        tool_contracts = {
+            "business_database_query": {"table": "customers|invoices|inventory", "filters": {}},
+            "policy_document_search": {"query": "text", "top_k": 3, "source_ids": []},
+            "calculator": [
+                {"operation": "calculate", "expression": "2 + 2"},
+                {"operation": "add_days", "date": "2026-01-01", "days": 1},
+                {
+                    "operation": "days_between",
+                    "start_date": "2026-01-01",
+                    "end_date": "2026-01-02",
+                },
+            ],
+            "text_extraction": {"text": "source text", "field": "emails|dates|amounts|word_count"},
+            "notes_memory": {"query": "text"},
+            "protected_record_access": {"record_id": "PR-1001", "purpose": "business purpose"},
+        }
+        system_prompt = (
+            "Select exactly one registered trusted tool. Return JSON with exactly "
+            "tool, tool_input, rationale. Never return code or calculate results. "
+            "The Python tool implementation performs all operations. "
+            f"Tool input contracts: {json.dumps(tool_contracts, sort_keys=True)}. "
+            f"Agent instructions: {agent_config['instructions']} "
+            f"Routing rules: {json.dumps(agent_config['tool_routing_rules'], sort_keys=True)}"
+        )
+        payload = {
+            "model": self.settings.ollama_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": task},
+            ],
+            "stream": False,
+            "format": "json",
+            "keep_alive": "10m",
+            "options": {"temperature": 0, "num_predict": 128},
+        }
+        url = self.settings.ollama_base_url.rstrip("/") + "/api/chat"
+        try:
+            response = httpx.post(
+                url,
+                json=payload,
+                timeout=self.settings.ollama_timeout_seconds,
+            )
+            response.raise_for_status()
+            content = response.json()["message"]["content"]
+            plan = json.loads(content)
+        except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+            raise RuntimeError(f"Ollama planning failed: {exc}") from None
+        if (
+            not isinstance(plan, dict)
+            or set(plan) != {"tool", "tool_input", "rationale"}
+            or not isinstance(plan["rationale"], str)
+            or not plan["rationale"].strip()
+        ):
+            raise ValueError("Ollama returned an invalid GuardianLoop plan.")
+        validate_tool_input(plan["tool"], plan["tool_input"])
         return plan
 
     @staticmethod

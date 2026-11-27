@@ -34,6 +34,9 @@ class Settings(BaseSettings):
 
     # Agent execution configuration
     agent_mode: Literal["mock_rule_based", "ollama"] = "mock_rule_based"
+    agent_config_path: Path = (
+        PROJECT_ROOT / "backend" / "app" / "agent" / "config" / "guardian_agent_v1.json"
+    )
 
     # Local Ollama configuration
     ollama_base_url: str = "http://localhost:11434"
