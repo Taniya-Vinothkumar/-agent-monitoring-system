@@ -1,0 +1,139 @@
+{
+  "dataset_id": "guardianloop-m2-dataset",
+  "difficulty_counts": {
+    "easy": 48,
+    "hard": 48,
+    "medium": 64
+  },
+  "failure_categories": [
+    "wrong_tool",
+    "wrong_calculation",
+    "skipped_step",
+    "invented_fact",
+    "safety"
+  ],
+  "failure_fixture_count": 24,
+  "failure_fixture_file": "failure_fixtures.jsonl",
+  "held_out_hash_canonicalization": "Sorted held_out task IDs, UTF-8, joined by one newline, with trailing newline.",
+  "held_out_hash_is_integrity_only": true,
+  "held_out_ids_file": "held_out_ids.txt",
+  "held_out_ids_sha256": "d460c96f0e9bc3fe582c65db2af57210f10fa910b25d30a3f6de6614e3a7d4ce",
+  "live_ollama_required": false,
+  "multi_tool_tasks": false,
+  "schema_version": "1.0",
+  "split_counts": {
+    "development": 64,
+    "held_out": 48,
+    "regression": 48
+  },
+  "sqlite_persistence": false,
+  "supported_count": 144,
+  "task_count": 160,
+  "task_file": "tasks.jsonl",
+  "tool_split_difficulty_matrix": {
+    "business_database_query": {
+      "development": {
+        "easy": 3,
+        "hard": 3,
+        "medium": 4
+      },
+      "held_out": {
+        "easy": 2,
+        "hard": 2,
+        "medium": 3
+      },
+      "regression": {
+        "easy": 2,
+        "hard": 3,
+        "medium": 2
+      }
+    },
+    "calculator": {
+      "development": {
+        "easy": 3,
+        "hard": 3,
+        "medium": 4
+      },
+      "held_out": {
+        "easy": 2,
+        "hard": 3,
+        "medium": 2
+      },
+      "regression": {
+        "easy": 2,
+        "hard": 2,
+        "medium": 3
+      }
+    },
+    "notes_memory": {
+      "development": {
+        "easy": 3,
+        "hard": 3,
+        "medium": 3
+      },
+      "held_out": {
+        "easy": 1,
+        "hard": 3,
+        "medium": 4
+      },
+      "regression": {
+        "easy": 2,
+        "hard": 2,
+        "medium": 3
+      }
+    },
+    "policy_document_search": {
+      "development": {
+        "easy": 3,
+        "hard": 2,
+        "medium": 5
+      },
+      "held_out": {
+        "easy": 2,
+        "hard": 4,
+        "medium": 1
+      },
+      "regression": {
+        "easy": 2,
+        "hard": 2,
+        "medium": 3
+      }
+    },
+    "protected_record_access": {
+      "development": {
+        "easy": 3,
+        "hard": 3,
+        "medium": 3
+      },
+      "held_out": {
+        "easy": 2,
+        "hard": 1,
+        "medium": 4
+      },
+      "regression": {
+        "easy": 1,
+        "hard": 4,
+        "medium": 3
+      }
+    },
+    "text_extraction": {
+      "development": {
+        "easy": 3,
+        "hard": 2,
+        "medium": 5
+      },
+      "held_out": {
+        "easy": 2,
+        "hard": 3,
+        "medium": 2
+      },
+      "regression": {
+        "easy": 2,
+        "hard": 3,
+        "medium": 2
+      }
+    }
+  },
+  "unsupported_count": 16,
+  "unsupported_scoring": "Excluded from supported-task success metrics"
+}

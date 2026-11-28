@@ -10,9 +10,10 @@ from typing import Any, Mapping
 from jsonschema import Draft202012Validator
 
 from backend.app.agent.adapter import AgentAdapter
+from backend.app.agent.business_world import BUSINESS_DATABASE
 from backend.app.agent.ollama_executor import OllamaAgentExecutor
 from backend.app.agent.task_handler import extract_expression
-from backend.app.agent.tools import TOOL_NAMES, run_checked_tool
+from backend.app.agent.tools import TOOL_NAMES, run_checked_tool, validate_tool_input
 from backend.app.api.schemas import AgentInfo
 from backend.app.config import Settings
 from backend.app.monitoring.trace_recorder import TraceRecorder
@@ -242,25 +243,223 @@ class GuardianAgentAdapter(AgentAdapter):
     ) -> dict[str, Any]:
         if self.settings.agent_mode != "ollama":
             return deterministic_plan
-        if deterministic_plan["tool"] == "calculator" and deterministic_plan["tool_input"][
-            "operation"
-        ] != "calculate":
+        expected_tool = deterministic_plan["tool"]
+        if expected_tool == "business_database_query":
+            expected_filters = self._expected_database_filters(
+                task_text,
+                deterministic_plan["tool_input"]["table"],
+            )
+            if expected_filters is not None:
+                deterministic_plan = {
+                    **deterministic_plan,
+                    "tool_input": {
+                        **deterministic_plan["tool_input"],
+                        "filters": expected_filters,
+                    },
+                }
+        if self._can_use_deterministic_plan(task_text, deterministic_plan):
+            validate_tool_input(expected_tool, deterministic_plan["tool_input"])
+            self._validate_semantic_alignment(
+                task_text,
+                expected_tool,
+                deterministic_plan["tool_input"],
+            )
             return deterministic_plan
+
         raw = OllamaAgentExecutor(self.settings).request_guardian_plan(
             task_text,
             self._active_config,
+            expected_tool=expected_tool,
         )
-        tool_name = raw["tool"]
+        if raw["tool"] != expected_tool:
+            raise ValueError("Ollama changed the deterministically selected tool.")
+        tool_input = self._complete_tool_input(
+            expected_tool,
+            raw["tool_input"],
+            task_text,
+        )
+        validate_tool_input(expected_tool, tool_input)
+        self._validate_semantic_alignment(task_text, expected_tool, tool_input)
         return {
             "verification_status": "verified",
-            "tool": tool_name,
-            "tool_input": self._complete_tool_input(
-                tool_name,
-                raw["tool_input"],
-                task_text,
-            ),
+            "tool": expected_tool,
+            "tool_input": tool_input,
             "rationale": raw["rationale"],
         }
+
+    def _can_use_deterministic_plan(
+        self, task_text: str, plan: Mapping[str, Any]
+    ) -> bool:
+        tool_name = plan["tool"]
+        tool_input = plan["tool_input"]
+        if tool_name == "business_database_query":
+            mentioned_tables = [
+                table
+                for keyword, table in (
+                    ("customer", "customers"),
+                    ("invoice", "invoices"),
+                    ("inventory", "inventory"),
+                )
+                if keyword in task_text.casefold()
+            ]
+            if len(set(mentioned_tables)) != 1 or tool_input["table"] != mentioned_tables[0]:
+                return False
+            expected_filters = self._expected_database_filters(
+                task_text,
+                tool_input["table"],
+            )
+            return expected_filters is not None
+        if tool_name == "text_extraction":
+            expected_field = self._requested_extraction_field(task_text)
+            source = task_text.split(":", 1)[-1].strip() if ":" in task_text else ""
+            return (
+                expected_field is not None
+                and tool_input["field"] == expected_field
+                and bool(source)
+            )
+        if tool_name == "protected_record_access":
+            return re.search(r"\bPR-\d+\b", task_text, re.IGNORECASE) is not None
+        return True
+
+    @staticmethod
+    def _has_database_filter_intent(task_text: str) -> bool:
+        return re.search(
+            r"\b(?:with|for|where|whose|named|called|status|active|inactive|paid|"
+            r"open|amount|quantity|id|over|under|above|below)\b",
+            task_text,
+            re.IGNORECASE,
+        ) is not None
+
+    @classmethod
+    def _expected_database_filters(
+        cls, task_text: str, table: str
+    ) -> dict[str, Any] | None:
+        if table not in BUSINESS_DATABASE:
+            return None
+
+        task_lower = task_text.casefold()
+        rows = BUSINESS_DATABASE[table]
+        expected: dict[str, Any] = {}
+        supported_statuses = {
+            row["status"] for row in rows if isinstance(row.get("status"), str)
+        }
+        for status in supported_statuses:
+            if status == "open":
+                status_mentioned = re.search(
+                    r"\b(?:status\s*(?:is|=|:)?\s*open|"
+                    r"(?:list|show|find|search|get|retrieve)\s+(?:all\s+)?open\s+invoices)\b",
+                    task_lower,
+                )
+            else:
+                status_mentioned = re.search(
+                    rf"\b(?:status\s*(?:is|=|:)?\s*{re.escape(status)}|"
+                    rf"{re.escape(status)}\s+(?:customers?|invoices?)|"
+                    rf"(?:customers?|invoices?)\s+(?:that are|which are|with status)\s+{re.escape(status)})\b",
+                    task_lower,
+                )
+            if status_mentioned:
+                expected["status"] = status
+
+        for row in rows:
+            for field, value in row.items():
+                if field != "status" and isinstance(value, str) and re.search(
+                    r"(?<!\w)" + re.escape(value.casefold()) + r"(?!\w)",
+                    task_lower,
+                ):
+                    expected[field] = value
+
+        amount_match = re.search(
+            r"(?:\$|amount(?:\s+(?:of|is))?\s+)(\d+(?:\.\d{1,2})?)",
+            task_text,
+            re.IGNORECASE,
+        )
+        if amount_match and table == "invoices":
+            requested_amount = float(amount_match.group(1))
+            if any(row["amount"] == requested_amount for row in rows):
+                expected["amount"] = requested_amount
+
+        quantity_match = re.search(
+            r"(?:quantity|qty|units?)\s*(?:of|is|:)?\s*(\d+)",
+            task_text,
+            re.IGNORECASE,
+        )
+        if quantity_match and table == "inventory":
+            requested_quantity = int(quantity_match.group(1))
+            if any(row["quantity"] == requested_quantity for row in rows):
+                expected["quantity"] = requested_quantity
+
+        if expected:
+            if re.search(
+                r"\b(?:in|from|within|located|based|region|between|before|after|"
+                r"over|under|above|below|greater|less|more|fewer)\b",
+                task_lower,
+            ):
+                return None
+            return expected
+        if cls._has_database_filter_intent(task_text):
+            return None
+        return {}
+
+    @staticmethod
+    def _requested_extraction_field(task_text: str) -> str | None:
+        instructions = task_text.split(":", 1)[0].casefold()
+        requested = {
+            "emails": re.search(r"\bemail(?:s)?(?:\s+addresses?)?\b", instructions),
+            "dates": re.search(r"\bdates?\b", instructions),
+            "amounts": re.search(r"\b(?:dollar\s+)?amounts?\b", instructions),
+            "word_count": re.search(
+                r"\b(?:word\s+count|count\s+(?:the\s+)?words?)\b",
+                instructions,
+            ),
+        }
+        fields = [field for field, match in requested.items() if match]
+        if len(fields) > 1:
+            raise ValueError("Text extraction request specifies multiple fields.")
+        return fields[0] if fields else None
+
+    def _validate_semantic_alignment(
+        self,
+        task_text: str,
+        tool_name: str,
+        tool_input: Mapping[str, Any],
+    ) -> None:
+        if tool_name == "business_database_query":
+            mentioned_tables = [
+                table
+                for keyword, table in (
+                    ("customer", "customers"),
+                    ("invoice", "invoices"),
+                    ("inventory", "inventory"),
+                )
+                if keyword in task_text.casefold()
+            ]
+            if len(set(mentioned_tables)) != 1 or tool_input["table"] != mentioned_tables[0]:
+                raise ValueError("Database plan selected a table not requested by the task.")
+            expected_filters = self._expected_database_filters(
+                task_text,
+                tool_input["table"],
+            )
+            if expected_filters is None or tool_input["filters"] != expected_filters:
+                raise ValueError("Database filters do not match the task constraints.")
+        elif tool_name == "text_extraction":
+            expected_field = self._requested_extraction_field(task_text)
+            if expected_field is None or tool_input["field"] != expected_field:
+                raise ValueError("Text extraction field does not match the task request.")
+            expected_text = (
+                task_text.split(":", 1)[-1].strip()
+                if ":" in task_text
+                else task_text
+            )
+            if tool_input["text"] != expected_text:
+                raise ValueError("Text extraction input does not match the task source.")
+        elif tool_name == "protected_record_access":
+            record_match = re.search(r"\bPR-\d+\b", task_text, re.IGNORECASE)
+            if (
+                record_match is None
+                or tool_input["record_id"] != record_match.group(0).upper()
+                or not tool_input["purpose"].strip()
+            ):
+                raise ValueError("Protected-record plan is missing task-grounded arguments.")
 
     def _complete_tool_input(
         self, tool_name: str, raw_input: Mapping[str, Any], task_text: str

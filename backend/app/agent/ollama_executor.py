@@ -120,7 +120,10 @@ Example text response:
         return plan
 
     def request_guardian_plan(
-        self, task: str, agent_config: dict[str, Any]
+        self,
+        task: str,
+        agent_config: dict[str, Any],
+        expected_tool: str | None = None,
     ) -> dict[str, Any]:
         """Ask Ollama to select only from the six M1 trusted tools."""
         tool_contracts = {
@@ -147,6 +150,11 @@ Example text response:
             f"Agent instructions: {agent_config['instructions']} "
             f"Routing rules: {json.dumps(agent_config['tool_routing_rules'], sort_keys=True)}"
         )
+        if expected_tool is not None:
+            system_prompt += (
+                f" Deterministic routing has already selected {expected_tool}; "
+                "you must use that exact tool and must not change the selection."
+            )
         payload = {
             "model": self.settings.ollama_model,
             "messages": [
@@ -177,6 +185,8 @@ Example text response:
             or not plan["rationale"].strip()
         ):
             raise ValueError("Ollama returned an invalid GuardianLoop plan.")
+        if expected_tool is not None and plan["tool"] != expected_tool:
+            raise ValueError("Ollama changed the deterministically selected tool.")
         validate_tool_input(plan["tool"], plan["tool_input"])
         return plan
 

@@ -103,11 +103,246 @@ def test_ollama_planning_failure_is_recorded_as_failed_trace(monkeypatch):
     monkeypatch.setattr(OllamaAgentExecutor, "request_guardian_plan", fail_planning)
     adapter = GuardianAgentAdapter(_settings(agent_mode="ollama"))
 
-    trace = adapter.run_task({"text": "What is 4 * 3?"})
+    trace = adapter.run_task({"text": "Show active customers in Quebec"})
 
     assert trace["status"] == "failed"
     assert trace["steps"][0]["status"] == "error"
     assert "model unavailable" in trace["steps"][0]["error"]
+
+
+def test_ollama_uses_complete_deterministic_plans_without_model_call(monkeypatch):
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("Complete deterministic plans must bypass Ollama.")
+
+    monkeypatch.setattr(OllamaAgentExecutor, "request_guardian_plan", unexpected_call)
+    adapter = GuardianAgentAdapter(_settings(agent_mode="ollama"))
+    tasks = [
+        "List customer records",
+        "Show active customers",
+        "Find the travel policy",
+        "What is 4 * 3?",
+        "Extract email from: avery@example.com",
+        "Find a note about customer review",
+        "Open protected record PR-1001",
+    ]
+
+    for task in tasks:
+        trace = adapter.run_task({"text": task})
+        assert trace["status"] == "completed", task
+        assert any(step["kind"] == "tool_call" for step in trace["steps"]), task
+        if task == "Show active customers":
+            tool_step = next(step for step in trace["steps"] if step["kind"] == "tool_call")
+            assert tool_step["inputs"]["filters"] == {"status": "active"}
+
+
+def test_ollama_protected_record_access_uses_only_trusted_authorization_context(
+    monkeypatch,
+):
+    def unexpected_call(*args, **kwargs):
+        raise AssertionError("A complete protected-record request is deterministic.")
+
+    monkeypatch.setattr(OllamaAgentExecutor, "request_guardian_plan", unexpected_call)
+    adapter = GuardianAgentAdapter(_settings(agent_mode="ollama"))
+    task = {"text": "Open protected record PR-1001"}
+
+    denied = adapter.run_task(task)
+    authorized = adapter.run_task(
+        task,
+        context={"principal": {"roles": ["hr_records_reader"]}},
+    )
+
+    denied_output = next(step for step in denied["steps"] if step["kind"] == "tool_call")[
+        "outputs"
+    ]
+    authorized_output = next(
+        step for step in authorized["steps"] if step["kind"] == "tool_call"
+    )["outputs"]
+    assert denied_output == {
+        "record_id": "PR-1001",
+        "authorized": False,
+        "record": None,
+    }
+    assert authorized_output["authorized"] is True
+    assert authorized_output["record"]["record_id"] == "PR-1001"
+
+
+def test_ollama_database_filter_validation_accepts_only_task_grounded_filters():
+    adapter = GuardianAgentAdapter(_settings(agent_mode="ollama"))
+    valid_input = {"table": "customers", "filters": {"status": "active"}}
+    adapter._validate_semantic_alignment(
+        "Show active customers",
+        "business_database_query",
+        valid_input,
+    )
+
+    for filters in ({}, {"status": "inactive"}):
+        with pytest.raises(ValueError, match="Database filters"):
+            adapter._validate_semantic_alignment(
+                "Show active customers",
+                "business_database_query",
+                {"table": "customers", "filters": filters},
+            )
+
+    assert adapter._expected_database_filters(
+        "Open invoice I-200",
+        "invoices",
+    ) == {"invoice_id": "I-200"}
+
+
+def test_ollama_model_receives_locked_tool_and_rejects_unverifiable_database_filter(
+    monkeypatch,
+):
+    calls = []
+
+    def plan(self, task, agent_config, expected_tool=None):
+        calls.append(expected_tool)
+        return {
+            "tool": "business_database_query",
+            "tool_input": {"table": "customers", "filters": {"status": "active"}},
+            "rationale": "The request asks for customers in Quebec.",
+        }
+
+    monkeypatch.setattr(OllamaAgentExecutor, "request_guardian_plan", plan)
+    trace = GuardianAgentAdapter(_settings(agent_mode="ollama")).run_task(
+        {"text": "Show active customers in Quebec"}
+    )
+
+    assert calls == ["business_database_query"]
+    assert trace["status"] == "failed"
+    assert "Database filters do not match" in trace["steps"][0]["error"]
+    assert not any(step["kind"] == "tool_call" for step in trace["steps"])
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [{}, {"status": "inactive"}],
+)
+def test_ollama_database_plan_rejects_missing_or_wrong_task_filter(monkeypatch, filters):
+    def plan(self, task, agent_config, expected_tool=None):
+        return {
+            "tool": "business_database_query",
+            "tool_input": {"table": "customers", "filters": filters},
+            "rationale": "A database lookup.",
+        }
+
+    monkeypatch.setattr(OllamaAgentExecutor, "request_guardian_plan", plan)
+    trace = GuardianAgentAdapter(_settings(agent_mode="ollama")).run_task(
+        {"text": "Show active customers in Quebec"}
+    )
+
+    assert trace["status"] == "failed"
+    assert not any(step["kind"] == "tool_call" for step in trace["steps"])
+    assert "Database filters do not match" in trace["steps"][0]["error"]
+
+
+@pytest.mark.parametrize(
+    "tool_input",
+    [
+        {"text": "Extract email from avery@example.com", "field": "dates"},
+        {"text": "wrong source", "field": "emails"},
+    ],
+)
+def test_ollama_text_extraction_rejects_wrong_field_or_source(monkeypatch, tool_input):
+    def plan(self, task, agent_config, expected_tool=None):
+        return {
+            "tool": "text_extraction",
+            "tool_input": tool_input,
+            "rationale": "Extract the requested value.",
+        }
+
+    monkeypatch.setattr(OllamaAgentExecutor, "request_guardian_plan", plan)
+    trace = GuardianAgentAdapter(_settings(agent_mode="ollama")).run_task(
+        {"text": "Extract email from avery@example.com"}
+    )
+
+    assert trace["status"] == "failed"
+    assert not any(step["kind"] == "tool_call" for step in trace["steps"])
+    assert "Text extraction" in trace["steps"][0]["error"]
+
+
+def test_ollama_adapter_rejects_a_model_selected_tool_change(monkeypatch):
+    def plan(self, task, agent_config, expected_tool=None):
+        assert expected_tool == "text_extraction"
+        return {
+            "tool": "policy_document_search",
+            "tool_input": {"query": task, "top_k": 3, "source_ids": []},
+            "rationale": "Changed tool.",
+        }
+
+    monkeypatch.setattr(OllamaAgentExecutor, "request_guardian_plan", plan)
+    trace = GuardianAgentAdapter(_settings(agent_mode="ollama")).run_task(
+        {"text": "Extract email from avery@example.com"}
+    )
+
+    assert trace["status"] == "failed"
+    assert "changed the deterministically selected tool" in trace["steps"][0]["error"]
+    assert not any(step["kind"] == "tool_call" for step in trace["steps"])
+
+
+@pytest.mark.parametrize(
+    ("plan", "expected_tool"),
+    [
+        (
+            {
+                "tool": "calculator",
+                "tool_input": {"operation": "calculate", "expression": "2 + 2"},
+            },
+            "calculator",
+        ),
+        (
+            {
+                "tool": "calculator",
+                "tool_input": {
+                    "operation": "calculate",
+                    "expression": "2 + 2",
+                    "unexpected": True,
+                },
+                "rationale": "Arithmetic.",
+            },
+            "calculator",
+        ),
+        (
+            {
+                "tool": "policy_document_search",
+                "tool_input": {"query": "travel", "top_k": 3, "source_ids": []},
+                "rationale": "Wrong selected tool.",
+            },
+            "calculator",
+        ),
+        (
+            {
+                "tool": "protected_record_access",
+                "tool_input": {"record_id": "PR-1001"},
+                "rationale": "Missing purpose.",
+            },
+            "protected_record_access",
+        ),
+    ],
+)
+def test_guardian_ollama_planner_rejects_malformed_or_changed_plans(
+    monkeypatch, plan, expected_tool
+):
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        @staticmethod
+        def json():
+            return {"message": {"content": json.dumps(plan)}}
+
+    monkeypatch.setattr(
+        "backend.app.agent.ollama_executor.httpx.post",
+        lambda *args, **kwargs: Response(),
+    )
+    adapter = GuardianAgentAdapter(_settings(agent_mode="ollama"))
+    executor = OllamaAgentExecutor(adapter.settings)
+
+    with pytest.raises(ValueError):
+        executor.request_guardian_plan(
+            "What is 2 + 2?",
+            dict(adapter.get_config()),
+            expected_tool=expected_tool,
+        )
 
 
 def test_exactly_six_tools_and_each_checker_validates_output():
